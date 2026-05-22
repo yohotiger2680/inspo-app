@@ -395,10 +395,10 @@ function attachDrag(card){
     if(!moved)return;
     if(Math.abs(curX)>W*0.28){
       const dir=curX>0?1:-1;
-      card.style.transition="transform 0.3s ease-out,opacity 0.25s";
+      card.style.transition="transform 0.18s ease-in,opacity 0.15s";
       card.style.transform=`translateX(calc(-50% + ${dir*W*1.4}px)) rotate(${dir*22}deg)`;
       card.style.opacity="0";
-      setTimeout(nextCard,300);
+      setTimeout(nextCard,180);
     } else {
       card.style.transition="transform 0.4s cubic-bezier(0.25,1,0.5,1)";
       card.style.transform="translateX(-50%)";
