@@ -309,7 +309,7 @@ function renderCard(anim){
   const item=deck[cur];if(!item)return;
   const card=document.createElement("div");card.className="card";
   const tagHTML=[...(item.category||[]).map(t=>`<span class="tag ${CAT_CLS[t]||""}">${t}</span>`),...(item.source||[]).map(t=>`<span class="tag tag-source">${t}</span>`)].join("");
-  const pageId=item.url?item.url.split("/").pop().split("?")[0]:"";
+  const pageId=item.url?(item.url.split("/").pop().split("?")[0].replace(/-/g,"").slice(-32)):"";
   card.innerHTML=`
     <div class="card-head"><span class="week-tag">${item.week}</span><span class="card-num">${cur+1} / ${deck.length}</span></div>
     <div class="card-inner">
@@ -375,6 +375,8 @@ function attachDrag(card){
 
   function onStart(e){
     if(animating)return;
+    const tag=(e.target||e.srcElement).tagName;
+    if(tag==="BUTTON"||tag==="A") return;
     tracking=true;
     startX=getX(e); startY=getY(e);
     tx=0; t0=Date.now(); x0=startX;
