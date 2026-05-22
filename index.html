@@ -304,7 +304,7 @@ function renderCard(anim){
   const item=deck[cur];if(!item)return;
   const card=document.createElement("div");card.className="card";
   const tagHTML=[...(item.category||[]).map(t=>`<span class="tag ${CAT_CLS[t]||""}">${t}</span>`),...(item.source||[]).map(t=>`<span class="tag tag-source">${t}</span>`)].join("");
-  const linkHTML=item.url?`<a class="card-link" href="${item.url}" target="_blank">↗ open in notion</a>`:"";
+  const linkHTML=item.url?`<a class="card-link" href="${item.url}" target="_blank" rel="noopener noreferrer">↗ open in notion</a>`:"";
   card.innerHTML=`
     <div class="card-head"><span class="week-tag">${item.week}</span><span class="card-num">${cur+1} / ${deck.length}</span></div>
     <div class="card-inner">
