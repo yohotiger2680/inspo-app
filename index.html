@@ -69,6 +69,11 @@ html, body { height: 100%; background: var(--sky); font-family: 'DotGothic16', s
 .tag-fnb       { color: #8a1a5a; background: rgba(138,26,90,0.08);  border-color: rgba(138,26,90,0.3); }
 .tag-source    { color: var(--ink4); background: transparent; border: 2px dashed rgba(26,18,8,0.2); }
 .card-link { font-size: 10px; letter-spacing: 0.06em; color: var(--ink4); text-decoration: none; }
+.link-btn { display: inline-flex; align-items: center; gap: 5px; font-family: 'DotGothic16', sans-serif; font-size: 10px; letter-spacing: 0.08em; padding: 5px 12px; border: 2px solid var(--ink); background: transparent; color: var(--ink3); cursor: pointer; margin-right: 5px; margin-bottom: 4px; transition: all 0.1s; pointer-events: auto; }
+.link-btn:hover { background: var(--ink); color: var(--sky2); }
+.link-btn:active { transform: translate(1px,1px); }
+.link-btn.loading { opacity: 0.5; cursor: default; }
+.link-area { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; pointer-events: auto; }
 .card-link:hover { color: var(--ink); }
 .swipe-hint { position: absolute; bottom: 0.9rem; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--ink4); letter-spacing: 0.12em; display: flex; align-items: center; gap: 7px; pointer-events: none; transition: opacity 0.5s; white-space: nowrap; text-transform: uppercase; }
 .hint-dash { width: 12px; height: 2px; background: var(--ink4); }
@@ -304,14 +309,17 @@ function renderCard(anim){
   const item=deck[cur];if(!item)return;
   const card=document.createElement("div");card.className="card";
   const tagHTML=[...(item.category||[]).map(t=>`<span class="tag ${CAT_CLS[t]||""}">${t}</span>`),...(item.source||[]).map(t=>`<span class="tag tag-source">${t}</span>`)].join("");
-  const linkHTML="";
+  const pageId=item.url?item.url.split("/").pop().split("?")[0]:"";
   card.innerHTML=`
     <div class="card-head"><span class="week-tag">${item.week}</span><span class="card-num">${cur+1} / ${deck.length}</span></div>
     <div class="card-inner">
       <div class="card-label">this week's inspo ★</div>
       <div class="card-title">${item.title}</div>
       ${item.text?`<div class="card-rule"></div><div class="card-text">${item.text}</div>`:""}
-      <div class="card-footer"><div class="tags">${tagHTML}</div>${linkHTML}</div>
+      <div class="card-footer">
+        <div class="tags">${tagHTML}</div>
+        ${pageId?`<div class="link-area" id="link-area-${pageId}"><button class="link-btn" onclick="loadLinks('${pageId}',this)">↗ 링크 열기</button></div>`:""}
+      </div>
     </div>
     ${hintShown?`<div class="swipe-hint" id="swipe-hint"><div class="hint-dash"></div>swipe<div class="hint-dash"></div></div>`:""}
   `;
@@ -328,18 +336,92 @@ function updateProgress(){
   document.getElementById("prog-right").textContent=`${cur+1} of ${deck.length}`;
 }
 function nextCard(){cur=(cur+1)%deck.length;renderCard();}
-function attachDrag(card){
-  function start(x){isDragging=true;startX=x;curX=0;velX=0;lastX=x;lastT=Date.now();card.style.transition="none";}
-  function move(x){if(!isDragging)return;const now=Date.now(),dt=Math.max(now-lastT,1);velX=(x-lastX)/dt*16;lastX=x;lastT=now;curX=x-startX;const rot=curX*0.05,lift=Math.min(Math.abs(curX)*0.025,7);card.style.transform=`translateX(calc(-50% + ${curX}px)) rotate(${rot}deg) translateY(-${lift}px)`;}
-  function end(){if(!isDragging)return;isDragging=false;if(Math.abs(curX)>120||Math.abs(velX)>8){flyOut(card,curX>0?1:-1);}else{card.classList.add("snap");card.style.transform="";setTimeout(()=>card.classList.remove("snap"),500);}}
-  card.addEventListener("mousedown",e=>{if(e.button===0)start(e.clientX);});
-  window.addEventListener("mousemove",e=>{if(isDragging)move(e.clientX);});
-  window.addEventListener("mouseup",end);
-  card.addEventListener("touchstart",e=>start(e.touches[0].clientX),{passive:true});
-  window.addEventListener("touchmove",e=>{if(isDragging){move(e.touches[0].clientX);e.preventDefault();}},{passive:false});
-  window.addEventListener("touchend",end);
+
+function getLinkLabel(url){
+  if(url.includes("instagram.com"))return "Instagram ↗";
+  if(url.includes("twitter.com")||url.includes("x.com"))return "X ↗";
+  if(url.includes("tiktok.com"))return "TikTok ↗";
+  if(url.includes("youtube.com")||url.includes("youtu.be"))return "YouTube ↗";
+  return "링크 ↗";
 }
-function flyOut(card,dir){card.classList.add("fly");card.style.transform=`translateX(calc(-50% + ${dir*580}px)) rotate(${dir*16}deg)`;card.style.opacity="0";setTimeout(nextCard,270);}
+async function loadLinks(pageId, btn){
+  const area=document.getElementById("link-area-"+pageId);
+  if(!area)return;
+  btn.classList.add("loading");
+  btn.textContent="로딩 중...";
+  try{
+    const r=await fetch("/api/page",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pageId,token:TOKEN})});
+    const d=await r.json();
+    if(d.urls&&d.urls.length>0){
+      area.innerHTML=d.urls.map(url=>`<a class="link-btn" href="${url}" target="_blank" rel="noopener noreferrer">${getLinkLabel(url)}</a>`).join("");
+    } else {
+      area.innerHTML=`<span style="font-size:10px;color:var(--ink4);letter-spacing:0.06em">링크 없음</span>`;
+    }
+  }catch(e){
+    btn.classList.remove("loading");
+    btn.textContent="↗ 링크 열기";
+  }
+}
+
+function attachDrag(card){
+  let tx=0, startX=0, startY=0, tracking=false, animating=false;
+  const W=window.innerWidth;
+  const THRESHOLD=W*0.3;
+  const VEL_THRESHOLD=0.4;
+  let t0=0, x0=0;
+
+  function getX(e){return e.touches?e.touches[0].clientX:e.clientX;}
+  function getY(e){return e.touches?e.touches[0].clientY:e.clientY;}
+
+  function onStart(e){
+    if(animating)return;
+    tracking=true;
+    startX=getX(e); startY=getY(e);
+    tx=0; t0=Date.now(); x0=startX;
+    card.style.transition="none";
+    card.style.willChange="transform";
+  }
+
+  function onMove(e){
+    if(!tracking||animating)return;
+    const dx=getX(e)-startX;
+    const dy=getY(e)-startY;
+    if(Math.abs(dy)>Math.abs(dx)*1.5){tracking=false;return;}
+    if(e.cancelable)e.preventDefault();
+    tx=dx;
+    const rot=tx*0.04;
+    card.style.transform=`translateX(calc(-50% + ${tx}px)) rotate(${rot}deg)`;
+  }
+
+  function onEnd(e){
+    if(!tracking)return;
+    tracking=false;
+    const dt=Date.now()-t0||1;
+    const vel=(tx-( (getX(e)||x0) - startX + tx ))/dt*1000;
+    const speed=Math.abs(tx)/dt*1000;
+    const shouldFly=Math.abs(tx)>THRESHOLD||speed>VEL_THRESHOLD*1000;
+
+    if(shouldFly){
+      animating=true;
+      const dir=tx>0?1:-1;
+      card.style.transition="transform 0.32s ease-out, opacity 0.28s ease-out";
+      card.style.transform=`translateX(calc(-50% + ${dir*W*1.3}px)) rotate(${dir*20}deg)`;
+      card.style.opacity="0";
+      setTimeout(()=>{animating=false;nextCard();},320);
+    } else {
+      card.style.transition="transform 0.45s cubic-bezier(0.25,1,0.5,1)";
+      card.style.transform="translateX(-50%)";
+      setTimeout(()=>{card.style.transition="";card.style.willChange="";},460);
+    }
+  }
+
+  card.addEventListener("mousedown",onStart);
+  window.addEventListener("mousemove",onMove);
+  window.addEventListener("mouseup",onEnd);
+  card.addEventListener("touchstart",onStart,{passive:true});
+  window.addEventListener("touchmove",onMove,{passive:false});
+  window.addEventListener("touchend",onEnd);
+}
 
 loadAll();
 </script>
