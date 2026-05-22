@@ -329,7 +329,7 @@ function renderCard(anim){
       ${item.text?`<div class="card-rule"></div><div class="card-text">${item.text}</div>`:""}
       <div class="card-footer">
         <div class="tags">${tagHTML}</div>
-        ${pageId?`<div class="link-area" id="la-${pageId}"><button class="link-btn" id="lb-${pageId}" type="button">↗ 링크 열기</button></div>`:""}
+        ${pageId?`<div class="link-area" id="la-${pageId}"><button class="link-btn" id="lb-${pageId}" type="button">↗ 노션에서 보기</button></div>`:""}
       </div>
     </div>
     ${hintShown?`<div class="swipe-hint" id="swipe-hint"><div class="hint-dash"></div>swipe<div class="hint-dash"></div></div>`:""}
@@ -343,7 +343,8 @@ function renderCard(anim){
     if(lb){
       lb.addEventListener("click",function(e){
         e.stopPropagation();
-        loadLinks(pageId,lb);
+        e.preventDefault();
+        openNotion(pageId);
       });
     }
   }
@@ -357,30 +358,17 @@ function updateProgress(){
 }
 function nextCard(){cur=(cur+1)%deck.length;renderCard();}
 
-function getLinkLabel(url){
-  if(url.includes("instagram.com"))return "Instagram ↗";
-  if(url.includes("twitter.com")||url.includes("x.com"))return "X ↗";
-  if(url.includes("tiktok.com"))return "TikTok ↗";
-  if(url.includes("youtube.com")||url.includes("youtu.be"))return "YouTube ↗";
-  return "링크 ↗";
-}
-async function loadLinks(pageId, btn){
-  const area=document.getElementById("link-area-"+pageId);
-  if(!area)return;
-  btn.classList.add("loading");
-  btn.textContent="로딩 중...";
-  try{
-    const r=await fetch("/api/page",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pageId,token:TOKEN})});
-    const d=await r.json();
-    if(d.urls&&d.urls.length>0){
-      area.innerHTML=d.urls.map(url=>`<a class="link-btn" href="${url}" target="_blank" rel="noopener noreferrer">${getLinkLabel(url)}</a>`).join("");
-    } else {
-      area.innerHTML=`<span style="font-size:10px;color:var(--ink4);letter-spacing:0.06em">링크 없음</span>`;
-    }
-  }catch(e){
-    btn.classList.remove("loading");
-    btn.textContent="↗ 링크 열기";
-  }
+function openNotion(pageId){
+  const notionAppUrl="notion://www.notion.so/"+pageId;
+  const notionWebUrl="https://www.notion.so/"+pageId;
+  const a=document.createElement("a");
+  a.href=notionAppUrl;
+  a.target="_blank";
+  a.rel="noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>{window.open(notionWebUrl,"_blank");},1500);
 }
 
 function attachDrag(card){
